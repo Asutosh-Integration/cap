@@ -1,41 +1,54 @@
 {
-  "name": "prakalp",
-  "version": "1.0.0",
-  "description": "A simple CAP project.",
-  "repository": "<Add your repository here>",
-  "license": "UNLICENSED",
-  "private": true,
-  "dependencies": {
-    "@sap/cds": "^6",
-    "@sap/hana-client": "^2.17.21",
-    "express": "^4",
-    "hdb": "^0.19.0"
-  },
-  "scripts": {
-    "start": "cds-serve"
-  },
-  "cds": {
-    "build": {
-      "tasks": [
-        {
-          "for": "hana",
-          "dest": "../db"
+    "name": "prakalp",
+    "version": "1.0.0",
+    "description": "A simple CAP project.",
+    "repository": "<Add your repository here>",
+    "license": "UNLICENSED",
+    "private": true,
+    "dependencies": {
+        "@sap/audit-logging": "~5.7.1",
+        "@sap/xsenv": "3.4.0",
+        "@sap/xssec": "3.2.18",
+        "@sap/cds": "^6",
+        "@sap/hana-client": "^2.17.21",
+        "express": "^4",
+        "passport": "0.6.0",
+        "hdb": "^0.19.0"
+    },
+    "scripts": {
+        "start": "cds-serve",
+        "watch-frontend": "cds watch --open frontend/webapp/index.html?sap-ui-xx-viewCache=false",
+        "undeploy": "cf undeploy prakalp --delete-services --delete-service-keys --delete-service-brokers",
+        "build": "rimraf resources mta_archives && mbt build --mtar archive",
+        "deploy": "cf deploy mta_archives/archive.mtar --retries 1"
+    },
+    "cds": {
+        "build": {
+            "tasks": [
+                {
+                    "for": "hana",
+                    "dest": "../db"
+                },
+                {
+                    "for": "node-cf"
+                }
+            ]
         },
-        {
-          "for": "node-cf"
+        "requires": {
+            "db": {
+                "kind": "hana-cloud"
+            }
+        },
+        "hana": {
+            "deploy-format": "hdbtable"
         }
-      ]
     },
-    "requires": {
-      "db": {
-        "kind": "hana-cloud"
-      }
+    "devDependencies": {
+        "@sap/hdi-deploy": "4.6.1",
+        "@sap/ux-specification": "^1.108.9",
+        "rimraf": "^3.0.2"
     },
-    "hana": {
-      "deploy-format": "hdbtable"
-    }
-  },
-  "devDependencies": {
-    "@sap/hdi-deploy": "4.6.1"
-  }
+    "sapux": [
+        "app/frontend"
+    ]
 }

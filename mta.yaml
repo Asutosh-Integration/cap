@@ -1,40 +1,136 @@
-_schema-version: '3.1'
+_schema-version: "3.1"
 ID: prakalp
+description: A simple CAP project.
 version: 1.0.0
-description: "A simple CAP project."
+modules:
+- name: prakalp-srv
+  type: nodejs
+  path: gen/srv
+  requires:
+  - name: prakalp-db
+  - name: uaa_prakalp
+  provides:
+  - name: srv-api
+    properties:
+      srv-url: ${default-url}
+  parameters:
+    host: ${appname}
+    buildpack: nodejs_buildpack
+  build-parameters:
+    ignore: [".env","./node_modules"]
+    builder: npm-ci
+- name: prakalp-db-deployer
+  type: hdb
+  path: db
+  requires:
+  - name: prakalp-db
+  parameters:
+    ignore: [".env","./node_modules"]
+    buildpack: nodejs_buildpack
+- name: prakalp-destination-content
+  type: com.sap.application.content
+  requires:
+  - name: prakalp-destination-service
+    parameters:
+      content-target: true
+  - name: prakalp_html_repo_host
+    parameters:
+      service-key:
+        name: prakalp_html_repo_host-key
+  - name: uaa_prakalp
+    parameters:
+      service-key:
+        name: uaa_prakalp-key
+  parameters:
+    content:
+      instance:
+        destinations:
+        - Name: prakalp_app_prakalp_html_repo_host
+          ServiceInstanceName: prakalp-html5-app-host-service
+          ServiceKeyName: prakalp_html_repo_host-key
+          sap.cloud.service: prakalp.app
+        - Authentication: OAuth2UserTokenExchange
+          Name: prakalp_app_uaa_prakalp
+          ServiceInstanceName: prakalp-xsuaa-service
+          ServiceKeyName: uaa_prakalp-key
+          sap.cloud.service: prakalp.app
+        existing_destinations_policy: ignore
+  build-parameters:
+    no-source: true
+- name: prakalp-app-content
+  type: com.sap.application.content
+  path: .
+  requires:
+  - name: prakalp_html_repo_host
+    parameters:
+      content-target: true
+  build-parameters:
+    build-result: resources
+    requires:
+    - artifacts:
+      - frontend.zip
+      name: frontend
+      target-path: resources/
+- name: frontend
+  type: html5
+  path: app/frontend
+  build-parameters:
+    build-result: dist
+    builder: custom
+    commands:
+    - npm install
+    - npm run build:cf
+    supported-platforms: []
+resources:
+- name: prakalp-db
+  type: com.sap.xs.hdi-container
+  parameters:
+    service: hana
+    service-plan: hdi-shared
+- name: prakalp-destination-service
+  type: org.cloudfoundry.managed-service
+  parameters:
+    config:
+      HTML5Runtime_enabled: true
+      init_data:
+        instance:
+          destinations:
+          - Authentication: NoAuthentication
+            Name: ui5
+            ProxyType: Internet
+            Type: HTTP
+            URL: https://ui5.sap.com
+          - Name: prakalp-app-api
+            Authentication: NoAuthentication
+            ProxyType: Internet
+            HTML5.ForwardAuthToken: true
+            HTML5.DynamicDestination: true
+            Type: HTTP
+            URL: https://${appname}.${default-domain}
+          existing_destinations_policy: update
+      version: 1.0.0
+    service: destination
+    service-name: prakalp-destination-service
+    service-plan: lite
+- name: prakalp_html_repo_host
+  type: org.cloudfoundry.managed-service
+  parameters:
+    service: html5-apps-repo
+    service-name: prakalp-html5-app-host-service
+    service-plan: app-host
+- name: uaa_prakalp
+  type: org.cloudfoundry.managed-service
+  parameters:
+    path: ./xs-security.json
+    service: xsuaa
+    service-name: prakalp-xsuaa-service
+    service-plan: application
 parameters:
+  deploy_mode: html5-repo
   enable-parallel-deployments: true
+  appname: unique-0b765668
 build-parameters:
   before-all:
-    - builder: custom
-      commands:
-        - npx -p @sap/cds-dk cds build --production
-modules:
-  - name: prakalp-srv
-    type: nodejs
-    path: gen/srv
-    parameters:
-      buildpack: nodejs_buildpack
-    build-parameters:
-      builder: npm-ci
-    provides:
-      - name: srv-api # required by consumers of CAP services (e.g. approuter)
-        properties:
-          srv-url: ${default-url}
-    requires:
-      - name: prakalp-db
-
-  - name: prakalp-db-deployer
-    type: hdb
-    path: db #gen/db
-    parameters:
-      buildpack: nodejs_buildpack
-    requires:
-      - name: prakalp-db
-
-resources:
-  - name: prakalp-db
-    type: com.sap.xs.hdi-container
-    parameters:
-      service: hana
-      service-plan: hdi-shared
+  - builder: custom
+    commands:
+    - npx -p @sap/cds-dk cds build --production
